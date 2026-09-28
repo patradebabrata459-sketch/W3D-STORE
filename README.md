@@ -11,7 +11,7 @@
 [![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)]()
 [![Vercel](https://img.shields.io/badge/Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)]()
 
-**Owner:** [@voyger_xyz](https://t.me/voyger_xyz) · **Channel:** [@SGCodexs](https://t.me/SGCodexs)
+**Owner:** [@voyger_xyz](https://t.me/voyger_xyz)
 
 ---
 
