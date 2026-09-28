@@ -850,7 +850,7 @@ a, button, input, textarea, select { cursor: none; }
                 </div>
                 <button type="submit" class="btn-submit" style="margin-top: 24px;"><span>⚡ AUTHENTICATE ⚡</span></button>
             </form>
-            <p class="form-note">Default: <span style="color: var(--neon-cyan);">unknown_guy</span> / <span style="color: var(--neon-cyan);">DevilsWillRise2026</span></p>
+            <p class="form-note">Default: <span style="color: var(--neon-cyan);">D3BU</span> / <span style="color: var(--neon-cyan);">D3BU@2007</span></p>
         </div>
     </section>
 </div>
@@ -1016,19 +1016,16 @@ import {
     addDoc,
     deleteDoc,
     updateDoc,
-    doc,
-    query,
-    orderBy
+    doc
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const firebaseConfig = {
-    apiKey: "AIzaSyATfm_wYmoD_c43iyFZS0oQTK2NhKbTIFc",
-    authDomain: "w3d-store.firebaseapp.com",
-    databaseURL: "https://w3d-store-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "w3d-store",
-    storageBucket: "w3d-store.firebasestorage.app",
-    messagingSenderId: "919275197456",
-    appId: "1:919275197456:web:7e389dce65fd45c328a695"
+    apiKey: "AIzaSyDjlD28yK1ZVU5WREZR3fYEeII7cCPy5Bs",
+    authDomain: "w3d-store-93919.firebaseapp.com",
+    projectId: "w3d-store-93919",
+    storageBucket: "w3d-store-93919.firebasestorage.app",
+    messagingSenderId: "585910361257",
+    appId: "1:585910361257:web:7de863d43d39590e801db8"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -1036,7 +1033,7 @@ const db = getFirestore(app);
 
 window.firebaseDB = db;
 window.firebaseFns = {
-    collection, getDocs, addDoc, deleteDoc, updateDoc, doc, query, orderBy
+    collection, getDocs, addDoc, deleteDoc, updateDoc, doc
 };
 window.firebaseReady = true;
 </script>
@@ -1067,11 +1064,11 @@ function escapeHtml(s) {
 async function loadApps() {
     try {
         const db = window.firebaseDB;
-        const { collection, getDocs, query, orderBy } = window.firebaseFns;
+        const { collection, getDocs } = window.firebaseFns;
         if (!db) return [];
-        const q = query(collection(db, "apps"), orderBy("created_at", "desc"));
-        const snapshot = await getDocs(q);
+        const snapshot = await getDocs(collection(db, "apps"));
         APPS = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        APPS.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
         return APPS;
     } catch (e) {
         console.error('Load error:', e);
@@ -1191,7 +1188,7 @@ function renderHome() {
             '<p class="empty-subtext">UPLOAD FROM COMMAND CENTER</p>' +
             '</div>';
     } else {
-        const sorted = list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        const sorted = list.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
         grid.innerHTML = sorted.map(appCard).join('');
     }
 }
@@ -1203,9 +1200,10 @@ function setHomeCategory(cat) {
 
 function appCard(app) {
     const cat = app.category || 'OTHER';
+    const firstLetter = (app.name && app.name[0]) ? app.name[0].toUpperCase() : '?';
     const iconHtml = app.icon_url 
-        ? '<img src="' + escapeHtml(app.icon_url) + '" alt="" onerror="this.style.display=\'none\';this.parentElement.textContent=\'' + escapeHtml(app.name[0].toUpperCase()) + '\'">' 
-        : escapeHtml(app.name[0].toUpperCase());
+        ? '<img src="' + escapeHtml(app.icon_url) + '" alt="" onerror="this.style.display=\'none\';this.parentElement.textContent=\'' + escapeHtml(firstLetter) + '\'">' 
+        : escapeHtml(firstLetter);
     return '<div class="app-card" onclick="viewApp(\'' + escapeHtml(app.id) + '\')">' +
         '<div class="app-card-header">' +
             '<div class="app-icon">' + iconHtml + '</div>' +
@@ -1233,7 +1231,7 @@ function renderApps() {
     if (q) list = list.filter(a => a.name.toLowerCase().includes(q) || (a.description || '').toLowerCase().includes(q));
     if (sort === 'popular') list.sort((a, b) => (b.downloads || 0) - (a.downloads || 0));
     else if (sort === 'name') list.sort((a, b) => a.name.localeCompare(b.name));
-    else list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    else list.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
     document.getElementById('appsCount').textContent = '▸ ' + list.length + ' APP' + (list.length !== 1 ? 'S' : '') + ' FOUND';
     const grid = document.getElementById('appsGrid');
     if (list.length === 0) grid.innerHTML = '<div class="empty-state"><div class="empty-icon">🔍</div><p class="empty-text">NO APPS FOUND</p></div>';
@@ -1266,13 +1264,25 @@ function doSearch() {
     }
 }
 
-function viewApp(id) {
-    const app = APPS.find(a => String(a.id) === String(id));
+async function viewApp(id) {
+    let app = APPS.find(a => String(a.id) === String(id));
+    if (!app) {
+        try {
+            const db = window.firebaseDB;
+            const { collection, getDocs } = window.firebaseFns;
+            const snapshot = await getDocs(collection(db, "apps"));
+            APPS = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+            app = APPS.find(a => String(a.id) === String(id));
+        } catch (e) {
+            console.error('Fetch error:', e);
+        }
+    }
     if (!app) return;
     const cat = app.category || 'OTHER';
+    const firstLetter = (app.name && app.name[0]) ? app.name[0].toUpperCase() : '?';
     const iconHtml = app.icon_url 
-        ? '<img src="' + escapeHtml(app.icon_url) + '" alt="" onerror="this.style.display=\'none\';this.parentElement.textContent=\'' + escapeHtml(app.name[0].toUpperCase()) + '\'">' 
-        : escapeHtml(app.name[0].toUpperCase());
+        ? '<img src="' + escapeHtml(app.icon_url) + '" alt="" onerror="this.style.display=\'none\';this.parentElement.textContent=\'' + escapeHtml(firstLetter) + '\'">' 
+        : escapeHtml(firstLetter);
     document.getElementById('detailContent').innerHTML = 
         '<button class="back-link" onclick="goBack()">← BACK</button>' +
         '<div class="detail-hero">' +
@@ -1345,9 +1355,10 @@ function renderManage() {
     }
     list.innerHTML = APPS.map(app => {
         const cat = app.category || 'OTHER';
+        const firstLetter = (app.name && app.name[0]) ? app.name[0].toUpperCase() : '?';
         const iconHtml = app.icon_url 
-            ? '<img src="' + escapeHtml(app.icon_url) + '" alt="" onerror="this.style.display=\'none\';this.parentElement.textContent=\'' + escapeHtml(app.name[0].toUpperCase()) + '\'">' 
-            : escapeHtml(app.name[0].toUpperCase());
+            ? '<img src="' + escapeHtml(app.icon_url) + '" alt="" onerror="this.style.display=\'none\';this.parentElement.textContent=\'' + escapeHtml(firstLetter) + '\'">' 
+            : escapeHtml(firstLetter);
         return '<div class="app-row">' +
             '<div class="app-row-icon">' + iconHtml + '</div>' +
             '<div class="app-row-info">' +
@@ -1400,11 +1411,19 @@ async function uploadApp(e) {
         return;
     }
     try {
-        await addAppToDB(appData);
+        const db = window.firebaseDB;
+        const { collection, addDoc } = window.firebaseFns;
+        const docRef = await addDoc(collection(db, "apps"), appData);
+        appData.id = docRef.id;
         APPS.unshift(appData);
+        APPS.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
         showToast('💀 ' + appData.name.toUpperCase() + ' UPLOADED');
         form.reset();
-        setTimeout(() => showPage('admin'), 800);
+        setTimeout(() => {
+            showPage('admin');
+            renderAdminDashboard();
+            renderHome();
+        }, 800);
     } catch (e) {
         showToast('❌ UPLOAD FAILED: ' + e.message, 'error');
     }
@@ -1452,7 +1471,11 @@ async function updateApp(e) {
         const idx = APPS.findIndex(a => String(a.id) === String(id));
         if (idx !== -1) APPS[idx] = { ...APPS[idx], ...updatedData };
         showToast('💀 ' + updatedData.name.toUpperCase() + ' UPDATED');
-        setTimeout(() => showPage('admin'), 800);
+        setTimeout(() => {
+            showPage('admin');
+            renderAdminDashboard();
+            renderHome();
+        }, 800);
     } catch (err) {
         showToast('❌ UPDATE FAILED: ' + err.message, 'error');
     }
@@ -1549,6 +1572,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderHome();
     PAGE_HISTORY = ['home'];
 });
+
+window.showPage = showPage;
+window.goHome = goHome;
+window.goBack = goBack;
+window.viewApp = viewApp;
+window.installApp = installApp;
+window.adminLogin = adminLogin;
+window.adminLogout = adminLogout;
+window.uploadApp = uploadApp;
+window.editApp = editApp;
+window.updateApp = updateApp;
+window.deleteApp = deleteApp;
+window.setHomeCategory = setHomeCategory;
+window.setAppsCategory = setAppsCategory;
+window.handleSearch = handleSearch;
+window.doSearch = doSearch;
+window.renderApps = renderApps;
 </script>
 
 </body>
