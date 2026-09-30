@@ -854,7 +854,6 @@ a, button, input, textarea, select { cursor: none; }
         <div style="padding: 14px; background: rgba(0,0,0,0.9); margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; border-radius: 12px; box-shadow: 0 0 25px rgba(255,26,26,0.3);">
             <input type="text" id="appsSearch" placeholder="SEARCH APPS..." class="form-input" style="flex:1; min-width: 160px;" oninput="renderApps()">
             <select id="appsSort" class="form-input" style="min-width: 140px; cursor: pointer;" onchange="renderApps()">
-                <option value="latest">NEWEST</option>
                 <option value="popular">MOST DOWNLOADED</option>
                 <option value="name">NAME A-Z</option>
             </select>
@@ -1120,6 +1119,15 @@ function formatNumber(n) {
     return n.toString();
 }
 
+// ⬇️⬇️ DOWNLOAD COUNT অনুযায়ী SORT ⬇️⬇️
+function sortByDownloads(list) {
+    return [...list].sort((a, b) => {
+        const dA = parseInt(a.downloads) || 0;
+        const dB = parseInt(b.downloads) || 0;
+        return dB - dA;
+    });
+}
+
 async function loadApps() {
     try {
         const db = window.firebaseDB;
@@ -1127,7 +1135,8 @@ async function loadApps() {
         if (!db) return [];
         const snapshot = await getDocs(collection(db, "apps"));
         APPS = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-        APPS.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+        // Download count অনুযায়ী sort - বেশি হলে উপরে
+        APPS = sortByDownloads(APPS);
         return APPS;
     } catch (e) {
         console.error('Load error:', e);
@@ -1247,7 +1256,8 @@ function renderHome() {
             '<p class="empty-subtext">UPLOAD FROM COMMAND CENTER</p>' +
             '</div>';
     } else {
-        const sorted = list.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+        // Download count অনুযায়ী sort - বেশি হলে উপরে
+        const sorted = sortByDownloads(list);
         grid.innerHTML = sorted.map(appCard).join('');
     }
 }
@@ -1288,9 +1298,14 @@ function renderApps() {
         list = list.filter(a => (a.category || 'OTHER') === activeAppsCategory);
     }
     if (q) list = list.filter(a => a.name.toLowerCase().includes(q) || (a.description || '').toLowerCase().includes(q));
-    if (sort === 'popular') list.sort((a, b) => (b.downloads || 0) - (a.downloads || 0));
-    else if (sort === 'name') list.sort((a, b) => a.name.localeCompare(b.name));
-    else list.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    
+    if (sort === 'name') {
+        list.sort((a, b) => a.name.localeCompare(b.name));
+    } else {
+        // Default: MOST DOWNLOADED
+        list = sortByDownloads(list);
+    }
+    
     document.getElementById('appsCount').textContent = '▸ ' + list.length + ' APP' + (list.length !== 1 ? 'S' : '') + ' FOUND';
     const grid = document.getElementById('appsGrid');
     if (list.length === 0) grid.innerHTML = '<div class="empty-state"><div class="empty-icon">🔍</div><p class="empty-text">NO APPS FOUND</p></div>';
@@ -1381,6 +1396,8 @@ async function installApp(id) {
             const idx = APPS.findIndex(a => String(a.id) === String(id));
             if (idx !== -1) {
                 APPS[idx].downloads = (parseInt(APPS[idx].downloads) || 0) + 1;
+                // Re-sort
+                APPS = sortByDownloads(APPS);
             }
         } catch (e) {
             console.error('Download count error:', e);
@@ -1428,7 +1445,9 @@ function renderManage() {
             '</div>';
         return;
     }
-    list.innerHTML = APPS.map(app => {
+    // Admin list-ও download count অনুযায়ী sort
+    const sortedApps = sortByDownloads(APPS);
+    list.innerHTML = sortedApps.map(app => {
         const cat = app.category || 'OTHER';
         const firstLetter = (app.name && app.name[0]) ? app.name[0].toUpperCase() : '?';
         const iconHtml = app.icon_url 
@@ -1491,7 +1510,8 @@ async function uploadApp(e) {
         const docRef = await addDoc(collection(db, "apps"), appData);
         appData.id = docRef.id;
         APPS.unshift(appData);
-        APPS.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+        // Download count অনুযায়ী sort
+        APPS = sortByDownloads(APPS);
         showToast('💀 ' + appData.name.toUpperCase() + ' UPLOADED');
         form.reset();
         setTimeout(() => {
@@ -1547,6 +1567,7 @@ async function updateApp(e) {
         await updateAppInDB(id, updatedData);
         const idx = APPS.findIndex(a => String(a.id) === String(id));
         if (idx !== -1) APPS[idx] = { ...APPS[idx], ...updatedData };
+        APPS = sortByDownloads(APPS);
         showToast('💀 ' + updatedData.name.toUpperCase() + ' UPDATED');
         setTimeout(() => {
             showPage('admin');
