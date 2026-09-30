@@ -290,11 +290,30 @@ body {
     text-shadow: 0 0 15px var(--neon-green);
     animation: cursorBlink 1s step-end infinite;
 }
+
+/* ⬇️⬇️ SCROLLING APP GRID ⬇️⬇️ */
 .app-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
     gap: 14px;
+    max-height: 65vh;
+    overflow-y: auto;
+    padding-right: 6px;
+    scroll-behavior: smooth;
 }
+.app-grid::-webkit-scrollbar { width: 6px; }
+.app-grid::-webkit-scrollbar-track { background: rgba(0,0,0,0.4); border-radius: 3px; }
+.app-grid::-webkit-scrollbar-thumb {
+    background: linear-gradient(var(--blood), var(--neon-magenta));
+    border-radius: 3px;
+    box-shadow: 0 0 10px var(--blood);
+}
+.app-grid::-webkit-scrollbar-thumb:hover {
+    background: var(--neon-magenta);
+    box-shadow: 0 0 15px var(--neon-magenta);
+}
+/* ⬆️⬆️ SCROLLING APP GRID ⬆️⬆️ */
+
 .app-card {
     background: rgba(0, 0, 0, 0.85);
     padding: 14px; cursor: pointer;
@@ -384,7 +403,7 @@ body {
     margin-bottom: 12px; text-transform: uppercase;
     animation: rainbowCycle 4s linear infinite;
 }
-.detail-tags { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
+.detail-tags { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; align-items: center; }
 .tag {
     padding: 5px 10px; font-size: 10px;
     letter-spacing: 0.12em; text-transform: uppercase;
@@ -394,6 +413,12 @@ body {
 }
 .tag-version { color: var(--neon-yellow); }
 .tag-verified { color: var(--neon-green); }
+.tag-downloads {
+    color: var(--neon-cyan);
+    border: 1px solid var(--neon-cyan);
+    background: rgba(0,255,255,0.08);
+    box-shadow: 0 0 20px rgba(0,255,255,0.3);
+}
 .detail-desc-short {
     color: rgba(255,255,255,0.9); line-height: 1.7;
     margin-bottom: 20px; max-width: 620px; font-size: 12px;
@@ -717,7 +742,7 @@ main { min-height: calc(100vh - 300px); }
     .detail-icon { width: 100px; height: 100px; font-size: 40px; }
     .detail-info h1 { font-size: 22px; }
     .btn-install { width: 100%; justify-content: center; padding: 12px 20px; font-size: 12px; }
-    .app-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+    .app-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; max-height: 60vh; }
     .hero-title { font-size: clamp(26px, 7vw, 44px); }
 }
 @media (max-width: 480px) {
@@ -726,7 +751,7 @@ main { min-height: calc(100vh - 300px); }
     .hero-subtitle { font-size: 11px; }
     .warning-banner { font-size: 9px; padding: 6px 10px; }
     .section-wrap { padding: 18px 12px; }
-    .app-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .app-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; max-height: 55vh; padding-right: 4px; }
     .app-card { padding: 10px; border-radius: 10px; }
     .app-icon { width: 40px; height: 40px; font-size: 16px; border-radius: 8px; }
     .app-name { font-size: 11px; }
@@ -939,6 +964,13 @@ a, button, input, textarea, select { cursor: none; }
                     <input type="url" name="apk_url" required class="admin-form-input" placeholder="HTTPS://EXAMPLE.COM/APP.APK">
                 </div>
             </div>
+            <div class="admin-form-row">
+                <div class="admin-form-group" style="margin: 0;">
+                    <label class="admin-form-label">▸ DOWNLOADS</label>
+                    <input type="number" name="downloads" value="0" class="admin-form-input" placeholder="0">
+                </div>
+                <div class="admin-form-group" style="margin: 0;"></div>
+            </div>
             <button type="submit" class="admin-form-submit" style="margin-top: 20px;"><span>☠️ UPLOAD APP ☠️</span></button>
         </form>
     </section>
@@ -990,6 +1022,13 @@ a, button, input, textarea, select { cursor: none; }
                     <input type="url" id="editApkUrl" name="apk_url" required class="admin-form-input" placeholder="HTTPS://EXAMPLE.COM/APP.APK">
                 </div>
             </div>
+            <div class="admin-form-row">
+                <div class="admin-form-group" style="margin: 0;">
+                    <label class="admin-form-label">▸ DOWNLOADS</label>
+                    <input type="number" id="editDownloads" name="downloads" value="0" class="admin-form-input" placeholder="0">
+                </div>
+                <div class="admin-form-group" style="margin: 0;"></div>
+            </div>
             <button type="submit" class="admin-form-submit" style="margin-top: 20px;"><span>💾 SAVE CHANGES</span></button>
         </form>
     </section>
@@ -1028,7 +1067,8 @@ import {
     addDoc,
     deleteDoc,
     updateDoc,
-    doc
+    doc,
+    increment
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -1045,7 +1085,7 @@ const db = getFirestore(app);
 
 window.firebaseDB = db;
 window.firebaseFns = {
-    collection, getDocs, addDoc, deleteDoc, updateDoc, doc
+    collection, getDocs, addDoc, deleteDoc, updateDoc, doc, increment
 };
 window.firebaseReady = true;
 </script>
@@ -1071,6 +1111,13 @@ function showToast(msg, type = 'success') {
 function escapeHtml(s) {
     if (s === null || s === undefined) return '';
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function formatNumber(n) {
+    n = parseInt(n) || 0;
+    if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+    if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+    return n.toString();
 }
 
 async function loadApps() {
@@ -1295,6 +1342,7 @@ async function viewApp(id) {
     const iconHtml = app.icon_url 
         ? '<img src="' + escapeHtml(app.icon_url) + '" alt="" onerror="this.style.display=\'none\';this.parentElement.textContent=\'' + escapeHtml(firstLetter) + '\'">' 
         : escapeHtml(firstLetter);
+    const downloads = parseInt(app.downloads) || 0;
     document.getElementById('detailContent').innerHTML = 
         '<button class="back-link" onclick="goBack()">← BACK</button>' +
         '<div class="detail-hero">' +
@@ -1304,6 +1352,7 @@ async function viewApp(id) {
                 '<div class="detail-tags">' +
                     '<span class="tag tag-version">VERSION ' + escapeHtml(app.version) + '</span>' +
                     '<span class="tag tag-verified">✓ VERIFIED</span>' +
+                    '<span class="tag tag-downloads">⬇ ' + formatNumber(downloads) + '+ DOWNLOADS</span>' +
                     '<span class="tag" style="color: var(--neon-cyan); border: 1px solid var(--neon-cyan); background: rgba(0,255,255,0.08);">' + getCategoryEmoji(cat) + ' ' + cat + '</span>' +
                 '</div>' +
                 '<button class="btn-install" onclick="installApp(\'' + escapeHtml(app.id) + '\')"><span>☠️ INSTALL NOW ☠️</span></button>' +
@@ -1317,11 +1366,26 @@ async function viewApp(id) {
     showPage('detail');
 }
 
-function installApp(id) {
+async function installApp(id) {
     const app = APPS.find(a => String(a.id) === String(id));
     if (!app) return;
     if (app.apk_url && app.apk_url.startsWith('http')) {
         showToast('⚡ INSTALLING ' + app.name.toUpperCase() + '...');
+        
+        try {
+            const db = window.firebaseDB;
+            const { doc, updateDoc, increment } = window.firebaseFns;
+            await updateDoc(doc(db, "apps", id), {
+                downloads: increment(1)
+            });
+            const idx = APPS.findIndex(a => String(a.id) === String(id));
+            if (idx !== -1) {
+                APPS[idx].downloads = (parseInt(APPS[idx].downloads) || 0) + 1;
+            }
+        } catch (e) {
+            console.error('Download count error:', e);
+        }
+        
         setTimeout(() => { window.open(app.apk_url, '_blank'); }, 300);
     } else {
         showToast('⚠️ INVALID APK URL', 'error');
@@ -1373,7 +1437,7 @@ function renderManage() {
         return '<div class="app-row">' +
             '<div class="app-row-icon">' + iconHtml + '</div>' +
             '<div class="app-row-info">' +
-                '<div class="app-row-name">' + escapeHtml(app.name) + ' <span class="app-row-version">v' + escapeHtml(app.version) + '</span> <span class="app-row-version" style="color: var(--neon-cyan); background: rgba(0,255,255,0.08);">' + getCategoryEmoji(cat) + ' ' + cat + '</span></div>' +
+                '<div class="app-row-name">' + escapeHtml(app.name) + ' <span class="app-row-version">v' + escapeHtml(app.version) + '</span> <span class="app-row-version" style="color: var(--neon-cyan); background: rgba(0,255,255,0.08);">' + getCategoryEmoji(cat) + ' ' + cat + '</span> <span class="app-row-version" style="color: var(--neon-yellow); background: rgba(255,230,0,0.08);">⬇ ' + formatNumber(app.downloads || 0) + '</span></div>' +
             '</div>' +
             '<div class="app-row-actions">' +
                 '<button class="admin-btn admin-btn-secondary" onclick="viewApp(\'' + escapeHtml(app.id) + '\')">VIEW</button>' +
@@ -1410,7 +1474,7 @@ async function uploadApp(e) {
         version: data.get('version').trim(),
         apk_url: data.get('apk_url').trim(),
         category: data.get('category') || 'OTHER',
-        downloads: 0,
+        downloads: parseInt(data.get('downloads')) || 0,
         created_at: new Date().toISOString()
     };
     if (!appData.name || !appData.icon_url || !appData.description || !appData.version || !appData.apk_url) {
@@ -1453,6 +1517,7 @@ function editApp(id) {
     document.getElementById('editVersion').value = app.version || '';
     document.getElementById('editApkUrl').value = app.apk_url || '';
     document.getElementById('editCategory').value = app.category || 'OTHER';
+    document.getElementById('editDownloads').value = app.downloads || 0;
     showPage('admin-edit');
 }
 
@@ -1467,7 +1532,8 @@ async function updateApp(e) {
         description: data.get('description').trim(),
         version: data.get('version').trim(),
         apk_url: data.get('apk_url').trim(),
-        category: data.get('category') || 'OTHER'
+        category: data.get('category') || 'OTHER',
+        downloads: parseInt(data.get('downloads')) || 0
     };
     if (!updatedData.name || !updatedData.icon_url || !updatedData.description || !updatedData.version || !updatedData.apk_url) {
         showToast('❌ ALL FIELDS REQUIRED', 'error');
